@@ -3,232 +3,289 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import sqlite3
 import time
+from flask import Flask
+from threading import Thread
 
 # --- 1. CONFIGURATION (Yahan apni details dalein) ---
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
-ADMIN_ID = 123456789          # Apna Telegram ID dalein (Rose Bot se check karein)
-UPI_ID = "your-upi@okaxis"    # Apni UPI ID dalein
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"       # 🔴 Apna Bot Token Yahan Dalein
+ADMIN_ID = 123456789                    # 🔴 Apna Telegram ID Yahan Dalein (Warna Admin Panel nahi khulega)
+UPI_ID = "your-upi@okaxis"              # 🔴 Apni UPI ID Yahan Dalein
+ADMIN_USERNAME = "@ABVerseBots"         # Support ke liye username
 
-# SMM PANEL DETAILS
-SMM_API_URL = "https://thesmmpro.com/api/v2" 
-SMM_API_KEY = "ac2d63d680b858d5955f347beadf6ce4"
+# SMM PANEL DETAILS (Aapka API Key Laga Diya Hai)
+SMM_API_URL = "https://thesmmpro.com/api/v2"
+SMM_API_KEY = "Ac2d63d680b858d5955f347beadf6ce4" 
 
-# SERVICE IDs (Panel se dekh kar ID yahan dalein)
+# ⚠️ SERVICE IDs (Aapki Select ki gayi IDs)
 SERVICE_IDS = {
-    'tg_views': 101,  # Example ID
-    'tg_subs': 102,   # Example ID
-    'tg_likes': 103   # Example ID
+    'tg_views': 2221,   # Last 5 Posts Views (Sasta: ₹2.17)
+    'tg_subs': 2460,    # Non-Drop Subscribers (Quality: ₹115)
+    'tg_likes': 2066    # Like Reaction (₹4.8)
 }
+
+# ⚠️ SELLING PRICES (Aapka Rate)
 PRICES_PER_1K = {
-    'tg_views': 10.0,  # ₹10 per 1000 views
-    'tg_subs': 150.0,  # ₹150 per 1000 subs
-    'tg_likes': 20.0   # ₹20 per 1000 likes
+    'tg_views': 10.0,   # Aap ₹10 mein bech rahe hain
+    'tg_subs': 160.0,   # Aap ₹160 mein bech rahe hain
+    'tg_likes': 10.0    # Aap ₹10 mein bech rahe hain
 }
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# --- 2. DATABASE FUNCTIONS (SQLite) ---
+# --- 2. RENDER SERVER (Bot ko 24/7 chalane ke liye) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "ABVerse Bot is Running! 🚀"
+
+def run_server():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run_server)
+    t.start()
+
+# --- 3. DATABASE FUNCTIONS (SQLite) ---
 def init_db():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database.db', check_same_thread=False)
     c = conn.cursor()
-    # Users table: ID, Balance
     c.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, balance REAL)''')
     conn.commit()
     conn.close()
 
 def get_balance(user_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT balance FROM users WHERE user_id=?", (user_id,))
-    result = c.fetchone()
+    res = c.fetchone()
     conn.close()
-    if result:
-        return result[0]
-    else:
-        # New user create karein
-        add_user(user_id)
-        return 0.0
+    return res[0] if res else 0.0
 
 def add_user(user_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database.db', check_same_thread=False)
     c = conn.cursor()
     try:
         c.execute("INSERT INTO users (user_id, balance) VALUES (?, ?)", (user_id, 0.0))
         conn.commit()
-    except:
-        pass
+    except: pass
     conn.close()
 
 def update_balance(user_id, amount):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("UPDATE users SET balance = balance + ? WHERE user_id=?", (amount, user_id))
     conn.commit()
     conn.close()
 
 def get_all_users():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT user_id FROM users")
     users = [row[0] for row in c.fetchall()]
     conn.close()
     return users
 
-# --- 3. SMM API FUNCTION ---
+# --- 4. SMM API FUNCTION ---
 def place_smm_order(service_id, link, quantity):
     payload = {
-        'key': SMM_API_KEY,
-        'action': 'add',
-        'service': service_id,
-        'link': link,
+        'key': SMM_API_KEY, 
+        'action': 'add', 
+        'service': service_id, 
+        'link': link, 
         'quantity': quantity
     }
     try:
-        # response = requests.post(SMM_API_URL, data=payload)
-        # return response.json()
-        
-        # --- TESTING KE LIYE FAKE RESPONSE (Jab tak real API key na ho ise use karein) ---
-        return {"order": 12345} 
+        response = requests.post(SMM_API_URL, data=payload)
+        return response.json()
     except Exception as e:
         return {"error": str(e)}
 
-# --- 4. MENUS (UI Buttons) ---
-def main_menu():
+# --- 5. MENUS (BUTTONS) ---
+def main_menu(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
-    btn1 = InlineKeyboardButton("IG FOLLOW ⚡️", callback_data="coming_soon")
-    btn2 = InlineKeyboardButton("INSTAGRAM 🔥", callback_data="coming_soon")
-    btn3 = InlineKeyboardButton("TELEGRAM 🐬", callback_data="tg_menu") # Main Feature
-    btn4 = InlineKeyboardButton("YOUTUBE 📺", callback_data="coming_soon")
-    btn5 = InlineKeyboardButton("💰 DEPOSIT", callback_data="deposit")
-    btn6 = InlineKeyboardButton("👤 PROFILE", callback_data="profile")
-    markup.add(btn1, btn2, btn3, btn4, btn5, btn6)
+    
+    # Buttons
+    btn_tg = InlineKeyboardButton("🐬 TELEGRAM SERVICES", callback_data="tg_menu")
+    markup.add(btn_tg)
+    
+    btn_dep = InlineKeyboardButton("💰 ADD FUNDS", callback_data="deposit")
+    btn_prof = InlineKeyboardButton("👤 MY ACCOUNT", callback_data="profile")
+    markup.add(btn_dep, btn_prof)
+    
+    btn_sup = InlineKeyboardButton("📞 SUPPORT", callback_data="support")
+    # ✅ Aapka Channel Link
+    btn_upd = InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/ABVerseBots") 
+    markup.add(btn_sup, btn_upd)
+    
+    # Admin Panel (Sirf Admin ko dikhega)
+    if user_id == ADMIN_ID:
+        btn_admin = InlineKeyboardButton("🔒 ADMIN PANEL", callback_data="admin_panel")
+        markup.add(btn_admin)
+        
     return markup
 
 def telegram_menu():
     markup = InlineKeyboardMarkup(row_width=2)
-    btn1 = InlineKeyboardButton("TG Subscribe ❄️", callback_data="order_tg_subs")
-    btn2 = InlineKeyboardButton("TG Like => ❤️", callback_data="order_tg_likes")
-    btn3 = InlineKeyboardButton("TG Post Views 🫧", callback_data="order_tg_views")
-    btn4 = InlineKeyboardButton("BACK 🔙", callback_data="back_main")
-    markup.add(btn1, btn2, btn3, btn4)
+    markup.add(
+        InlineKeyboardButton("TG Subscribe ❄️", callback_data="order_tg_subs"),
+        InlineKeyboardButton("TG Like => ❤️", callback_data="order_tg_likes"),
+        InlineKeyboardButton("TG Post Views 🫧", callback_data="order_tg_views"),
+        InlineKeyboardButton("BACK 🔙", callback_data="back_main")
+    )
     return markup
 
-# --- 5. HANDLERS ---
+def admin_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("📢 Broadcast", callback_data="admin_cast"),
+        InlineKeyboardButton("💰 Add Funds", callback_data="admin_fund"),
+        InlineKeyboardButton("📊 Stats", callback_data="admin_stats"),
+        InlineKeyboardButton("❌ Close", callback_data="back_main")
+    )
+    return markup
+
+# --- 6. HANDLERS ---
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    init_db() # Database check/create
+    init_db()
     add_user(message.chat.id)
-    bot.send_message(message.chat.id, "🌿 **WELCOME TO SMM BOT** 🌿\nSelect Service:", reply_markup=main_menu(), parse_mode='Markdown')
+    
+    # ✅ Aapki Photo
+    photo_url = "https://graph.org/file/a9e830577def913c831f5-197bb7e861be034518.jpg"
+    
+    caption_text = (
+        f"👋 **Hello {message.from_user.first_name}!**\n\n"
+        "🚀 **Welcome to ABVerse SMM Bot**\n"
+        "Best & Cheapest Telegram Promotion Service.\n\n"
+        "💎 **Why Choose Us?**\n"
+        "✅ Cheapest Rates (Views @ ₹10)\n"
+        "✅ Non-Drop Subscribers\n"
+        "✅ Instant Delivery\n\n"
+        "👇 **Select a Service Below:**"
+    )
+    
+    try:
+        bot.send_photo(
+            message.chat.id, 
+            photo=photo_url, 
+            caption=caption_text, 
+            reply_markup=main_menu(message.chat.id), 
+            parse_mode='Markdown'
+        )
+    except:
+        bot.send_message(
+            message.chat.id, 
+            caption_text, 
+            reply_markup=main_menu(message.chat.id), 
+            parse_mode='Markdown'
+        )
 
-# --- CALLBACKS (Button Clicks) ---
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     uid = call.message.chat.id
     
+    # --- USER ACTIONS ---
     if call.data == "back_main":
-        bot.edit_message_text("🌿 **MAIN MENU** 🌿", uid, call.message.message_id, reply_markup=main_menu(), parse_mode='Markdown')
+        bot.delete_message(uid, call.message.message_id) # Purana message delete karke fresh start
+        start(call.message)
 
     elif call.data == "tg_menu":
-        bot.edit_message_text("🐬 **TELEGRAM SERVICES**\nChoose Option:", uid, call.message.message_id, reply_markup=telegram_menu(), parse_mode='Markdown')
+        bot.edit_message_text("🐬 **TELEGRAM SERVICES**\nSelect Option:", uid, call.message.message_id, reply_markup=telegram_menu(), parse_mode='Markdown')
+
+    elif call.data == "deposit":
+        bot.send_message(uid, f"💰 **ADD FUNDS**\n\nUPI ID: `{UPI_ID}`\n\n1. Payment karein.\n2. Screenshot Support ko bhejein.", parse_mode='Markdown')
 
     elif call.data == "profile":
         bal = get_balance(uid)
-        bot.answer_callback_query(call.id, f"Balance: ₹{bal}")
-        bot.send_message(uid, f"👤 **USER PROFILE**\n\n🆔 ID: `{uid}`\n💰 Balance: ₹{bal}", parse_mode='Markdown')
+        bot.send_message(uid, f"👤 **MY PROFILE**\n\n🆔 User ID: `{uid}`\n💰 Balance: ₹{bal}", parse_mode='Markdown')
+        
+    elif call.data == "support":
+        bot.send_message(uid, f"📞 **Support:** {ADMIN_USERNAME}")
 
-    elif call.data == "deposit":
-        text = (
-            "💰 **DEPOSIT FUNDS**\n\n"
-            f"UPI ID: `{UPI_ID}`\n\n"
-            "1️⃣ Is ID par payment karein.\n"
-            "2️⃣ Screenshot Admin ko bhejein.\n"
-            "3️⃣ Admin verify karke balance add karega."
-        )
-        bot.send_message(uid, text, parse_mode='Markdown')
-
+    # --- ORDER SYSTEM ---
     elif call.data.startswith("order_"):
-        service_type = call.data.replace("order_", "")
-        rate = PRICES_PER_1K[service_type]
-        
-        msg = bot.send_message(uid, f"Selected: {service_type}\nPrice: ₹{rate}/1k\n\n🔗 **Link Bhejein:**")
-        bot.register_next_step_handler(msg, process_link, service_type)
-        
-    elif call.data == "coming_soon":
-        bot.answer_callback_query(call.id, "Coming Soon!")
+        sType = call.data.replace("order_", "")
+        rate = PRICES_PER_1K[sType]
+        msg = bot.send_message(uid, f"Selected: {sType}\nPrice: ₹{rate}/1k\n\n🔗 **Apna Link Bhejein:**")
+        bot.register_next_step_handler(msg, process_link, sType)
 
-# --- ORDER PROCESSING STEPS ---
+    # --- ADMIN PANEL ---
+    elif call.data == "admin_panel":
+        if uid == ADMIN_ID:
+            bot.edit_message_text("🔒 **ADMIN CONTROL PANEL**", uid, call.message.message_id, reply_markup=admin_menu(), parse_mode='Markdown')
 
-def process_link(message, service_type):
+    elif call.data == "admin_stats":
+        users = get_all_users()
+        bot.answer_callback_query(call.id, f"Total Users: {len(users)}")
+
+    elif call.data == "admin_cast":
+        msg = bot.send_message(uid, "📢 **Broadcast Message Likhein:**")
+        bot.register_next_step_handler(msg, process_broadcast)
+
+    elif call.data == "admin_fund":
+        msg = bot.send_message(uid, "👤 **User ID Bhejein jisko paise dene hain:**")
+        bot.register_next_step_handler(msg, process_fund_step1)
+
+# --- PROCESS FUNCTIONS ---
+def process_link(message, sType):
     link = message.text
-    msg = bot.reply_to(message, "🔢 **Quantity Dalein (e.g., 100, 1000):**")
-    bot.register_next_step_handler(msg, process_qty, service_type, link)
+    msg = bot.reply_to(message, "🔢 **Quantity Dalein (e.g. 100, 1000):**")
+    bot.register_next_step_handler(msg, process_qty, sType, link)
 
-def process_qty(message, service_type, link):
+def process_qty(message, sType, link):
     try:
         qty = int(message.text)
         uid = message.chat.id
+        cost = (PRICES_PER_1K[sType]/1000) * qty
         
-        # Calculate Cost
-        price_per_1k = PRICES_PER_1K[service_type]
-        total_cost = (price_per_1k / 1000) * qty
-        
-        # Check Balance
-        current_bal = get_balance(uid)
-        
-        if current_bal >= total_cost:
-            # 1. Deduct Balance (Database)
-            update_balance(uid, -total_cost)
+        # Balance Check
+        if get_balance(uid) >= cost:
+            update_balance(uid, -cost)
+            # API Call
+            res = place_smm_order(SERVICE_IDS[sType], link, qty)
             
-            # 2. Call API
-            smm_service_id = SERVICE_IDS[service_type]
-            api_res = place_smm_order(smm_service_id, link, qty)
-            
-            if "order" in api_res:
-                bot.reply_to(message, f"✅ **SUCCESS!**\nOrder ID: {api_res['order']}\nCost: ₹{total_cost}\nRemaining: ₹{current_bal - total_cost}")
+            if "order" in res:
+                bot.reply_to(message, f"✅ **Order Successful!**\nOrder ID: {res['order']}\n💰 Cost: ₹{cost}\nRem Balance: ₹{get_balance(uid)}")
             else:
-                # Refund agar API fail ho
-                update_balance(uid, total_cost)
-                bot.reply_to(message, "❌ Order Failed (API Error). Money Refunded.")
+                # API Fail hua to Refund
+                update_balance(uid, cost)
+                err = res.get('error', 'Unknown')
+                bot.reply_to(message, f"❌ **Order Failed!**\nReason: {err}\n\nMoney Refunded.")
         else:
-            bot.reply_to(message, f"❌ **Insufficient Balance**\nCost: ₹{total_cost}\nYour Balance: ₹{current_bal}\n\nPlease /deposit")
-            
+            bot.reply_to(message, "❌ **Insufficient Balance**\nPlease add funds.")
     except ValueError:
         bot.reply_to(message, "❌ Invalid Number.")
 
-# --- ADMIN COMMANDS ---
-
-# Balance add karne ke liye: /addfund [UserID] [Amount]
-@bot.message_handler(commands=['addfund'])
-def add_fund_admin(message):
-    if message.from_user.id == ADMIN_ID:
+# --- ADMIN FUNCTIONS ---
+def process_broadcast(message):
+    users = get_all_users()
+    count = 0
+    for u in users:
         try:
-            parts = message.text.split()
-            target_id = int(parts[1])
-            amount = float(parts[2])
-            
-            update_balance(target_id, amount)
-            bot.reply_to(message, f"✅ Added ₹{amount} to {target_id}")
-            bot.send_message(target_id, f"💰 **Deposit Successful!**\nAdded: ₹{amount}")
-        except:
-            bot.reply_to(message, "Format: /addfund user_id amount")
+            bot.send_message(u, f"📢 **ANNOUNCEMENT:**\n\n{message.text}")
+            count += 1
+        except: pass
+    bot.reply_to(message, f"✅ Sent to {count} users.")
 
-# Broadcast message
-@bot.message_handler(commands=['broadcast'])
-def broadcast(message):
-    if message.from_user.id == ADMIN_ID:
-        msg = message.text.replace('/broadcast', '')
-        users = get_all_users()
-        count = 0
-        for u in users:
-            try:
-                bot.send_message(u, f"📢 **NOTICE:**\n{msg}")
-                count += 1
-            except:
-                pass
-        bot.reply_to(message, f"Sent to {count} users.")
+def process_fund_step1(message):
+    try:
+        target_id = int(message.text)
+        msg = bot.reply_to(message, "💰 **Amount Dalein:**")
+        bot.register_next_step_handler(msg, process_fund_step2, target_id)
+    except: bot.reply_to(message, "❌ Invalid ID")
+
+def process_fund_step2(message, target_id):
+    try:
+        amount = float(message.text)
+        update_balance(target_id, amount)
+        bot.reply_to(message, f"✅ Added ₹{amount} to {target_id}")
+        bot.send_message(target_id, f"💰 **Balance Added!**\nAmount: ₹{amount}\nCheck /profile")
+    except: bot.reply_to(message, "❌ Invalid Amount")
 
 # --- START BOT ---
 init_db()
-print("Bot Started...")
+keep_alive()
+print("Bot Started... 🚀")
 bot.polling()
