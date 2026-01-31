@@ -10,8 +10,8 @@ ADMIN_ID = 123456789          # Apna Telegram ID dalein (Rose Bot se check karei
 UPI_ID = "your-upi@okaxis"    # Apni UPI ID dalein
 
 # SMM PANEL DETAILS
-SMM_API_URL = "https://example.com/api/v2" 
-SMM_API_KEY = "YOUR_SMM_API_KEY"
+SMM_API_URL = "https://thesmmpro.com/api/v2" 
+SMM_API_KEY = "ac2d63d680b858d5955f347beadf6ce4"
 
 # SERVICE IDs (Panel se dekh kar ID yahan dalein)
 SERVICE_IDS = {
