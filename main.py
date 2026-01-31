@@ -7,9 +7,9 @@ from flask import Flask
 from threading import Thread
 
 # --- 1. CONFIGURATION (Yahan apni details dalein) ---
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"       # 🔴 Apna Bot Token Yahan Dalein
-ADMIN_ID = 123456789                    # 🔴 Apna Telegram ID Yahan Dalein (Warna Admin Panel nahi khulega)
-UPI_ID = "your-upi@okaxis"              # 🔴 Apni UPI ID Yahan Dalein
+BOT_TOKEN = "8316362060:AAENJc2hBXERPJyANHO55FLc48aATIihbHk"       # 🔴 Apna Bot Token Yahan Dalein
+ADMIN_ID = 6883111123                    # 🔴 Apna Telegram ID Yahan Dalein (Warna Admin Panel nahi khulega)
+UPI_ID = "7679875670@fam"              # 🔴 Apni UPI ID Yahan Dalein
 ADMIN_USERNAME = "@ABVerseBots"         # Support ke liye username
 
 # SMM PANEL DETAILS (Aapka API Key Laga Diya Hai)
